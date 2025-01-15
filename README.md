@@ -52,9 +52,19 @@ To build and run this project, you need:
 
 Add these dependencies in your `build.gradle` file:
 ```gradle
-implementation "androidx.camera:camera-core:1.2.0"
-implementation "com.google.mlkit:object-detection:16.0.0"
-implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4"
+ // TensorFlow Lite dependencies
+    implementation(libs.tensorflow.lite.support)
+    implementation(libs.tensorflow.lite.metadata)
+    implementation(libs.tensorflow.lite.gpu)
+
+    // Lifecycle dependencies
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+
+    // Navigation dependencies
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
+
 ```
 
 ## Contributing
