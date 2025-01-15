@@ -43,38 +43,39 @@ import com.srikant.visionbox.viewmodel.MainViewModel
 
 class AnaFragment : Fragment() {
 
-    private lateinit var etiketler:List<String>
-    private var renklerListesi = listOf(Color.BLUE, Color.GREEN, Color.RED, Color.CYAN, Color.GRAY, Color.BLACK, Color.DKGRAY, Color.MAGENTA, Color.YELLOW, Color.RED)
+    private lateinit var labels: List<String>
+    private var colorsList = listOf(Color.BLUE, Color.GREEN, Color.RED, Color.CYAN, Color.GRAY, Color.BLACK, Color.DKGRAY, Color.MAGENTA, Color.YELLOW, Color.RED)
     private val paint = Paint()
     private lateinit var imageProcessor: ImageProcessor
-    private lateinit var model : AutoModel1
-    private lateinit var handler : Handler
-    private lateinit var kameraYonetisi : CameraManager
-    private var kameraAygiti: CameraDevice? = null
+    private lateinit var model: AutoModel1
+    private lateinit var handler: Handler
+    private lateinit var cameraManager: CameraManager
+    private var cameraDevice: CameraDevice? = null
     private lateinit var coroutineScope: CoroutineScope
     private val recognizedObjects = mutableListOf<RecognizedObjects>()
-    private lateinit var gucYonetimi: PowerManager
-    private lateinit var uyaniklikKilidi: PowerManager.WakeLock
+    private lateinit var powerManager: PowerManager
+    private lateinit var wakeLock: PowerManager.WakeLock
     private val vm: MainViewModel by viewModels()
-    private var _binding : FragmentMainBinding? = null
-    private val b get() = _binding!!
-    private var kamera = false
-    private var tarama = false
+    private var _binding: FragmentMainBinding? = null
+    private val binding get() = _binding!!
+    private var camera = false
+    private var scanning = false
+
 
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentMainBinding.inflate(inflater,container,false)
-        return b.root
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        etiketler = FileUtil.loadLabels(requireContext(), "labels.txt")
+        labels = FileUtil.loadLabels(requireContext(), "labels.txt")
 
 // Print a log message
-        Log.d("LabelsLoad", "Loaded labels: $etiketler")
+        Log.d("LabelsLoad", "Loaded labels: $labels")
 
-        kameraYonetisi = requireActivity().getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        cameraManager = requireActivity().getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
         coroutineScope = lifecycleScope
 
@@ -98,27 +99,27 @@ class AnaFragment : Fragment() {
             val stringBuilder = StringBuilder()
 
             recognizedObjects.forEach {
-                stringBuilder.append("${it.label}: %${it.olasilik.toInt()}\n")
+                stringBuilder.append("${it.label}: %${it.probability.toInt()}\n")
             }
-            b.multiLineTextView.text = stringBuilder.toString()
+            binding.multiLineTextView.text = stringBuilder.toString()
         }
     }
 
     private fun toolbarMenuTiklamaIslemleri (){
-        b.toolbar.setOnMenuItemClickListener {
+        binding.toolbar.setOnMenuItemClickListener {
             when (it.itemId) {
 
                 R.id.kamerayiAc_menuitem -> {
 
-                    kamera = kamera == false
-                    kameraOperasyonlari(kamera)
+                    camera = camera == false
+                    kameraOperasyonlari(camera)
                     return@setOnMenuItemClickListener true
                 }
 
                 R.id.tara_menuitem -> {
-                    if (kamera) {
-                        tarama = tarama == false
-                        taramaOperasyonlari(tarama)
+                    if (camera) {
+                        scanning = scanning == false
+                        taramaOperasyonlari(scanning)
                     } else
                         Snackbar.make(requireView(),"Önce kamera açılmalı",Snackbar.LENGTH_SHORT).show()
 
@@ -134,29 +135,29 @@ class AnaFragment : Fragment() {
         if(kamera) {
             if (kameraIzniVarMi()) {
                 kamerayiAc()
-                b.txtKameraDurumu.setText(R.string.acik)
-                b.txtKameraDurumu.setTextColor(Color.GREEN)
+                binding.txtKameraDurumu.setText(R.string.acik)
+                binding.txtKameraDurumu.setTextColor(Color.GREEN)
             } else kameraIzniIste()
         }
         else {
-            tarama = false
+            scanning = false
             taramaOperasyonlari(false)
             kamerayiKapat()
             vm.recognizedObjectsListesiLiveData.value = arrayListOf()
-            b.txtKameraDurumu.setText(R.string.kapali)
-            b.txtKameraDurumu.setTextColor(Color.RED)
+            binding.txtKameraDurumu.setText(R.string.kapali)
+            binding.txtKameraDurumu.setTextColor(Color.RED)
         }
     }
 
     fun taramaOperasyonlari (tarama : Boolean) {
-        if(tarama && kamera ) {
-            b.txtObjeTanimaDurumu.setText(R.string.acik)
-            b.txtObjeTanimaDurumu.setTextColor(Color.GREEN)
+        if(tarama && camera ) {
+            binding.txtObjeTanimaDurumu.setText(R.string.acik)
+            binding.txtObjeTanimaDurumu.setTextColor(Color.GREEN)
             textureIslemleri()
         }
         else {
-            b.txtObjeTanimaDurumu.setText(R.string.kapali)
-            b.txtObjeTanimaDurumu.setTextColor(Color.RED)
+            binding.txtObjeTanimaDurumu.setText(R.string.kapali)
+            binding.txtObjeTanimaDurumu.setTextColor(Color.RED)
         }
     }
 
@@ -177,8 +178,8 @@ class AnaFragment : Fragment() {
             255 -> {
                 if(kameraIzniVarMi()){
                     kamerayiAc()
-                    b.txtKameraDurumu.setText(R.string.acik)
-                    b.txtKameraDurumu.setTextColor(Color.GREEN)
+                    binding.txtKameraDurumu.setText(R.string.acik)
+                    binding.txtKameraDurumu.setTextColor(Color.GREEN)
                 }
                 else Snackbar.make(requireView(), "İzin alınamadı", Snackbar.LENGTH_SHORT).show()
             }
@@ -187,31 +188,31 @@ class AnaFragment : Fragment() {
 
 
     private fun uyanikTutmaKilidi() {
-        gucYonetimi = requireActivity().getSystemService(Context.POWER_SERVICE) as PowerManager
+        powerManager = requireActivity().getSystemService(Context.POWER_SERVICE) as PowerManager
 
         @Suppress("DEPRECATION")
-        uyaniklikKilidi = gucYonetimi.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "ObjetAnima::UyanikTutmaKilidimTag")
+        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "ObjetAnima::UyanikTutmaKilidimTag")
 
-        uyaniklikKilidi.acquire(10*60*1000L /*10 dakika*/)
+        wakeLock.acquire(10*60*1000L /*10 dakika*/)
     }
 
 
     fun textureIslemleri () {
-        b.textureView.surfaceTextureListener = object: TextureView.SurfaceTextureListener {
+        binding.textureView.surfaceTextureListener = object: TextureView.SurfaceTextureListener {
 
             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture) = false
 
             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                 coroutineScope.launch {
-                    if (kamera) kamerayiAc()
+                    if (camera) kamerayiAc()
                 }
             }
 
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
 
                 coroutineScope.launch {
-                    val bitmap = b.textureView.bitmap!!
+                    val bitmap = binding.textureView.bitmap!!
 
                     var image = TensorImage.fromBitmap(bitmap)
                     image = imageProcessor.process(image)
@@ -233,10 +234,10 @@ class AnaFragment : Fragment() {
                     skorlar.forEachIndexed { index, fl ->
                         x = index
                         x *= 4
-                        if (fl > 0.5 && tarama) {
-                            val etiket = etiketler.get(siniflar.get(index).toInt())
+                        if (fl > 0.5 && scanning) {
+                            val etiket = labels.get(siniflar.get(index).toInt())
                             val olasilik = fl * 100
-                            val renk = renklerListesi.get(index)
+                            val renk = colorsList.get(index)
 
                             recognizedObjects.add(RecognizedObjects(etiket, olasilik, renk))
 
@@ -259,7 +260,7 @@ class AnaFragment : Fragment() {
                             )
                         }
                     }
-                    b.imageView.setImageBitmap(mutable)
+                    binding.imageView.setImageBitmap(mutable)
                     vm.recognizedObjectsListesiLiveData.value = recognizedObjects
                     recognizedObjects.clear()
                 }
@@ -272,18 +273,18 @@ class AnaFragment : Fragment() {
     fun kamerayiAc () {
         coroutineScope.launch {
 
-            b.textureView.visibility = View.VISIBLE
-            b.imageView.visibility = View.VISIBLE
-            kameraYonetisi.openCamera(kameraYonetisi.cameraIdList[0], object : CameraDevice.StateCallback() {
+            binding.textureView.visibility = View.VISIBLE
+            binding.imageView.visibility = View.VISIBLE
+            cameraManager.openCamera(cameraManager.cameraIdList[0], object : CameraDevice.StateCallback() {
 
                 override fun onDisconnected(camera: CameraDevice) {}
                 override fun onError(camera: CameraDevice, error: Int) {}
 
                 override fun onOpened(camera: CameraDevice) {
 
-                    kameraAygiti = camera
+                    cameraDevice = camera
 
-                    val surface = Surface(b.textureView.surfaceTexture)
+                    val surface = Surface(binding.textureView.surfaceTexture)
                     val yakalamaIstegi = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
                     yakalamaIstegi.addTarget(surface)
 
@@ -303,10 +304,10 @@ class AnaFragment : Fragment() {
 
 
     fun kamerayiKapat() {
-        kameraAygiti?.close()
-        kameraAygiti = null
-        b.textureView.visibility = View.INVISIBLE
-        b.imageView.visibility = View.INVISIBLE
+        cameraDevice?.close()
+        cameraDevice = null
+        binding.textureView.visibility = View.INVISIBLE
+        binding.imageView.visibility = View.INVISIBLE
     }
 
 
@@ -314,7 +315,7 @@ class AnaFragment : Fragment() {
         super.onDestroy()
         coroutineScope.launch {
             model.close()
-            if (uyaniklikKilidi.isHeld) uyaniklikKilidi.release()
+            if (wakeLock.isHeld) wakeLock.release()
         }
     }
 }
